@@ -8,6 +8,7 @@
 #    - Cambiar inicio automatico del Administrador del Servidor
 #    - Habilitar RDP
 #    - Cambiar IP
+#    - IPv6
 #    - Reiniciar Servidor
 
 Clear-Host
@@ -169,6 +170,101 @@ if ($respuesta -eq 's') {
             Set-NetIPInterface -InterfaceAlias $interfazAModificar -Dhcp Enabled
         }
     }
+}
+
+
+###################### IPv6 ######################
+function Show-TableIPv6 {
+    $resultados = @()
+    $adaptadores = Get-NetAdapter
+
+    foreach ($adaptador in $adaptadores) {
+        $resultado = New-Object PSObject
+        $resultado | Add-Member -MemberType NoteProperty -Name "Interfaz" -Value $adaptador.InterfaceAlias
+
+        $ipv6Habilitado = Get-NetIPAddress -InterfaceAlias $adaptador.InterfaceAlias -AddressFamily IPv6 -ErrorAction SilentlyContinue
+        $estadoIPv6 = if ($ipv6Habilitado) { "Habilitado" } else { "Deshabilitado" }
+        $resultado | Add-Member -MemberType NoteProperty -Name "Estado IPv6" -Value $estadoIPv6
+
+        $resultados += $resultado
+    }
+
+    $resultados | Format-Table
+}
+
+# Pregunta al usuario si desea modificar la configuración IPv6
+do {
+    Clear-Host
+    Show-TableIPv6
+    $confirmacionIPv6 = Read-Host "¿Quieres modificar la configuración IPv6 de alguna interfaz? (Sí/No)"
+
+    if ($confirmacionIPv6 -notmatch '^(Sí|Yes|s|No|N)$') {
+        Write-Host "Respuesta no válida. Por favor, selecciona Sí o No."
+    }
+} while ($confirmacionIPv6 -notmatch '^(Sí|Yes|s|No|N)$')
+
+if ($confirmacionIPv6 -match '^(Sí|Yes|s)$') {
+    do {
+        Clear-Host
+        Show-TableIPv6
+        $interfazIPv6 = Read-Host "Introduce el nombre de la interfaz IPv6 que deseas modificar"
+        $adaptadorElegido = $interfazIPv6
+
+        # Verifica si la interfaz existe
+        $interfazExistente = Get-NetAdapter | Where-Object { $_.InterfaceAlias -eq $adaptadorElegido }
+
+        if ($interfazExistente -eq $null) {
+            Write-Host "La interfaz '$adaptadorElegido' no es válida o no existe."
+            do {
+                Clear-Host
+                Show-TableIPv6
+                $interfazIPv6 = Read-Host "Introduce el nombre de la interfaz IPv6 que deseas modificar"
+                $adaptadorElegido = $interfazIPv6
+                $interfazExistente = Get-NetAdapter | Where-Object { $_.InterfaceAlias -eq $adaptadorElegido }
+            } while ($interfazExistente -eq $null)
+        }
+
+        # Muestra la información actual de IPv6 para la interfaz seleccionada
+        Get-NetIPAddress -InterfaceAlias $adaptadorElegido -AddressFamily IPv6
+
+        # Verifica el estado actual de IPv6 en el adaptador elegido
+        $ipv6Habilitado = Get-NetIPAddress -InterfaceAlias $adaptadorElegido -AddressFamily IPv6 -ErrorAction SilentlyContinue
+
+        # Pregunta al usuario si desea cambiar el estado de IPv6
+        do {
+            if ($ipv6Habilitado) {
+                $respuesta = Read-Host "IPv6 está habilitado en $adaptadorElegido. ¿Deseas deshabilitarlo? (Sí/No)"
+            } else {
+                              
+                $respuesta = Read-Host "IPv6 está deshabilitado en $adaptadorElegido. ¿Deseas habilitarlo? (Sí/No)"
+            }
+
+            if ($respuesta -notmatch '^(Sí|No|Yes|No|s|n)$') {
+                Write-Host "Respuesta no válida. Por favor, selecciona Sí o No."
+            }
+        } while ($respuesta -notmatch '^(Sí|No|Yes|No|s|n)$')
+
+        # Realiza la acción según la respuesta del usuario
+        if ($respuesta -match '^(Sí|Yes|s)$') {
+            if ($ipv6Habilitado) {
+                # Deshabilita IPv6
+                Disable-NetAdapterBinding -Name $adaptadorElegido -ComponentID ms_tcpip6
+                Write-Host "IPv6 ha sido deshabilitado en $adaptadorElegido."
+            } else {
+                # Habilita IPv6
+                Enable-NetAdapterBinding -Name $adaptadorElegido -ComponentID ms_tcpip6
+                Write-Host "IPv6 ha sido habilitado en $adaptadorElegido."
+            }
+        } else {
+            Write-Host "No se realizaron cambios en $adaptadorElegido."
+        }
+
+        # Pregunta si desea modificar otra interfaz IPv6
+        do {
+            $continuar = Read-Host "¿Quieres modificar otra interfaz IPv6? (Sí/No)"
+        } while ($continuar -notmatch '^(Sí|Yes|s|No|N)$')
+
+    } while ($continuar -match '^(Sí|Yes|s)$')
 }
 
 
