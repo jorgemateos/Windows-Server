@@ -1,0 +1,182 @@
+# requires -RunAsAdministrator
+# Set-ExecutionPolicy -Scope LocalMachine Unrestricted -force
+
+# Script de primera configuracion basica tras la instalacion de windows server
+#  * Partes del Scipt
+#    - Importa/Instalar el módulo de Active Directory
+#    - Añadir equipo al dominio
+#    - Instalar Rol Active Directory
+#    - Promover Active Directory
+#    - Reiniciar Servidor
+
+Clear-Host
+
+###################### Importar/Instalar modulo Active Directory ######################
+# Importa el módulo de Active Directory
+if (Get-Module -ListAvailable | Where-Object { $_.Name -eq "ActiveDirectory" }) {
+    # El módulo de Active Directory ya está instalado.
+    Import-Module ActiveDirectory
+}
+else {
+    # El módulo de Active Directory no está instalado. Se procederá a la instalación.
+    Install-WindowsFeature -Name RSAT-AD-PowerShell
+    Import-Module ActiveDirectory
+}
+
+$respuesta = 0
+
+###################### Active Directory ######################
+# Pregunta al usuario qué acción desea realizar
+while ($respuesta -ne '1' -and $respuesta -ne '2') {
+    Clear-Host
+
+    Write-Host "######### Active Directory #########"
+    Write-Host "1- Añadir equipo al un dominio"
+    Write-Host "2- Instalar rol de Active Directory"
+
+    $respuesta = Read-Host "¿Qué acción desea realizar (Elije una opcion)?"
+}
+
+###################### Añadir equipo al Dominio ######################
+if ($respuesta -eq '1') {
+    Clear-host
+
+    $DomainName = Read-Host "¿Dime el nombre del dominio (por ejemplo, tudominio.local)?"
+    $Usuario =  Read-Host "¿Cual es el usuario vas a utilizar para unir el PC al Dominio?"
+
+    Add-Computer -DomainName $DomainName -Credential $Usuario
+
+    $Reinicio = 1
+}
+
+###################### Instalar rol Active Directory ######################
+if ($respuesta -eq '2') {
+    # Comprueba si el rol de Active Directory ya está instalado
+    if (Get-WindowsFeature -Name AD-Domain-Services | Where-Object {$_.Installed}) {
+        Clear-Host
+        # Solicita el nombre del dominio completo (por ejemplo, tudominio.local)
+        $domainName = Read-Host "Introduce el nombre completo del dominio (por ejemplo, tudominio.local)"
+
+        # Solicita el nombre NetBIOS del dominio (por ejemplo, TUDOMINIO)
+        $netbiosName = Read-Host "Introduce el nombre NetBIOS del dominio (por ejemplo, TUDOMINIO)"
+
+        # Solicita ruta Database       
+        $defaultDatabasePath = "C:\Windows\NTDS"
+
+        $pathDatabase = Read-Host "Introduce la ruta del Database (por defecto: $defaultDatabasePath)"
+        if ([string]::IsNullOrWhiteSpace($pathDatabase)) {
+            $pathDatabase = $defaultDatabasePath
+        }
+
+        # Solicita ruta de Log
+        $defaultLogPath = "C:\Windows\NTDS"
+
+        $pathLog = Read-Host "Introduce la ruta del Log (por defecto: $defaultLogPath)"
+        if ([string]::IsNullOrWhiteSpace($pathLog)) {
+            $pathLog = $defaultLogPath
+        }
+        # Solicita ruta de SYSVOL
+        $defaultSYSVOLPath = "C:\Windows\SYSVOL"
+
+        $pathSYSVOL = Read-Host "Introduce la ruta del SYSVOL (por defecto: $defaultSYSVOLPath)"
+        if ([string]::IsNullOrWhiteSpace($pathSYSVOL)) {
+            $pathSYSVOL = $defaultSYSVOLPath
+        }
+
+        # Solicita el ForestMode
+        Clear-Host
+        Write-Host "Selecciona el Modo de Bosque:"
+        Write-Host "1. Win2003"
+        Write-Host "2. Win2008"
+        Write-Host "3. Win2008R2"
+        Write-Host "4. Win2012"
+        Write-Host "5. Win2012R2"
+        Write-Host "6. Win2016"
+        Write-Host "7. Win2019"
+        Write-Host "8. Win2022"
+        Write-Host "9. Default"
+        $selectedForestMode = Read-Host "Introduce el número correspondiente al Modo del Bosque"
+
+        # Mapea el número seleccionado al ForestMode
+        $forestModes = @("Win2003", "Win2008", "Win2008R2", "Win2012", "Win2012R2", "Win2016", "Win2019", "Win2022", "Default")
+        $forestMode = $forestModes[$selectedForestMode - 1]
+
+        # Solicita las credenciales del administrador de dominio
+        $credential = Get-Credential -Message "Introduce las credenciales del administrador de dominio"
+
+        # Promueve el servidor a controlador de dominio
+        Install-ADDSForest -DatabasePath $pathDatabase -LogPath $pathLog -SYSVOLPath $pathSYSVOL -DomainName $domainName -DomainNetBIOSName $netbiosName -ForestMode $forestMode -InstallDNS:$true -NoRebootOnCompletion:$false -Force:$true
+
+        # Verifica la promoción exitosa
+        Get-ADDomainController -Filter * | Select-Object Name, Domain, Forest
+
+    }
+    else {
+       Clear-Host
+        # Solicita el nombre del dominio completo (por ejemplo, tudominio.local)
+        $domainName = Read-Host "Introduce el nombre completo del dominio (por ejemplo, tudominio.local)"
+
+        # Solicita el nombre NetBIOS del dominio (por ejemplo, TUDOMINIO)
+        $netbiosName = Read-Host "Introduce el nombre NetBIOS del dominio (por ejemplo, TUDOMINIO)"
+
+        # Solicita ruta Database       
+        $defaultDatabasePath = "C:\Windows\NTDS"
+
+        $pathDatabase = Read-Host "Introduce la ruta del Database (por defecto: $defaultDatabasePath)"
+        if ([string]::IsNullOrWhiteSpace($pathDatabase)) {
+            $pathDatabase = $defaultDatabasePath
+        }
+
+        # Solicita ruta de Log
+        $defaultLogPath = "C:\Windows\NTDS"
+
+        $pathLog = Read-Host "Introduce la ruta del Log (por defecto: $defaultLogPath)"
+        if ([string]::IsNullOrWhiteSpace($pathLog)) {
+            $pathLog = $defaultLogPath
+        }
+        # Solicita ruta de SYSVOL
+        $defaultSYSVOLPath = "C:\Windows\SYSVOL"
+
+        $pathSYSVOL = Read-Host "Introduce la ruta del SYSVOL (por defecto: $defaultSYSVOLPath)"
+        if ([string]::IsNullOrWhiteSpace($pathSYSVOL)) {
+            $pathSYSVOL = $defaultSYSVOLPath
+        }
+
+        # Solicita el ForestMode
+        Clear-Host
+        Write-Host "Selecciona el Modo de Bosque:"
+        Write-Host "1. Win2003"
+        Write-Host "2. Win2008"
+        Write-Host "3. Win2008R2"
+        Write-Host "4. Win2012"
+        Write-Host "5. Win2012R2"
+        Write-Host "6. Win2016"
+        Write-Host "7. Win2019"
+        Write-Host "8. Win2022"
+        Write-Host "9. Default"
+        $selectedForestMode = Read-Host "Introduce el número correspondiente al Modo del Bosque"
+
+        # Mapea el número seleccionado al ForestMode
+        $forestModes = @("Win2003", "Win2008", "Win2008R2", "Win2012", "Win2012R2", "Win2016", "Win2019", "Win2022", "Default")
+        $forestMode = $forestModes[$selectedForestMode - 1]
+
+        # Solicita las credenciales del administrador de dominio
+        $credential = Get-Credential -Message "Introduce las credenciales del administrador de dominio"
+
+        ## Instala el rol de AD DS
+        Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools
+
+        # Promueve el servidor a controlador de dominio
+        Install-ADDSForest -DatabasePath $pathDatabase -LogPath $pathLog -SYSVOLPath $pathSYSVOL -DomainName $domainName -DomainNetBIOSName $netbiosName -ForestMode $forestMode -InstallDNS:$true -NoRebootOnCompletion:$false -Force:$true
+
+        # Verifica la promoción exitosa
+        Get-ADDomainController -Filter * | Select-Object Name, Domain, Forest
+    }
+
+}
+
+
+###################### Reiniciar PC al Terminar ######################
+    if ($Reinicio -eq 1){
+        Restart-Computer -Force
+    }
