@@ -1,0 +1,5 @@
+# Informes generados por el script: contienen datos internos del dominio
+Auditoria-*/
+AD-Auditoria/
+informe.*
+*.log
