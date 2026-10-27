@@ -26,7 +26,7 @@
  .\Auditoria-AD2025.ps1 -Guiado -Subred '192.168.100.0/24' -Sitio 'Madrid' -Reenviador '192.168.100.1'
 .NOTES
  Autor: Jorge Mateos - https://jorgemateos.es
- Version 4
+ Version 4.1
 #>
 [CmdletBinding()]
 param(
@@ -192,6 +192,17 @@ function Test-ValidDate([object]$Value) { return ($Value -is [datetime] -and $Va
 function Add-BackupState([string]$Estado,[string]$Valor,[string]$Status,[string]$Detalle) {
  $script:wbState.Add([pscustomobject]@{Estado=$Estado;Valor=$Valor;Detalle=$Detalle})
  Add-Check 'Backups' "Estado: $Estado" $Status "$Valor. $Detalle"
+}
+function Import-WSBModule {
+ # Carga el modulo una sola vez. Al importarlo de nuevo, el propio modulo de Microsoft
+ # intenta crear alias que ya existen (Get/Set-WBVssBackupOptions) y muestra errores.
+ if(Get-Module -Name WindowsServerBackup){ return }
+ $previous=$ErrorActionPreference
+ try {
+  $ErrorActionPreference='SilentlyContinue'
+  Import-Module WindowsServerBackup -ErrorAction SilentlyContinue -WarningAction SilentlyContinue 2>$null 3>$null
+ } finally { $ErrorActionPreference=$previous }
+ if(-not (Get-Command -Name Get-WBPolicy -ErrorAction SilentlyContinue)){ throw 'El modulo WindowsServerBackup no esta disponible.' }
 }
 function Encode([object]$x){ return [System.Net.WebUtility]::HtmlEncode([string]$x) }
 
@@ -543,7 +554,7 @@ if($script:wbInstalled){
   Add-Check 'Backups' 'Copia en curso' 'INFO' "ExitCode=$($active.ExitCode); wbadmin-estado.txt NO representa la programacion."
  } 'Backups' 'wbadmin get status'
  Safe {
-  Import-Module WindowsServerBackup -ErrorAction Stop
+  Import-WSBModule
   $script:wbPolicy=Get-WBPolicy -ErrorAction Stop
   if($null -eq $script:wbPolicy){ Add-Check 'Backups' 'Politica WSB' 'INFO' 'No hay politica de Windows Server Backup configurada.'; return }
   $script:wbPolicy | Format-List * | Out-String | Set-Content (Join-Path $runDir 'wb-policy.txt') -Encoding UTF8
@@ -551,7 +562,7 @@ if($script:wbInstalled){
   Add-Check 'Backups' 'Politica WSB' 'INFO' "Politica encontrada; horarios=$((@($script:wbSchedule | ForEach-Object { $_.ToString('HH:mm') })) -join ', '); ver wb-policy.txt."
  } 'Backups' 'Politica WSB'
  Safe {
-  Import-Module WindowsServerBackup -ErrorAction Stop
+  Import-WSBModule
   $script:wbSummary=Get-WBSummary -ErrorAction Stop
   if($null -ne $script:wbSummary){ $script:wbSummary | Format-List * | Out-String | Set-Content (Join-Path $runDir 'wb-summary.txt') -Encoding UTF8 }
   Add-Check 'Backups' 'Resumen WSB' 'INFO' 'Ver wb-summary.txt.'

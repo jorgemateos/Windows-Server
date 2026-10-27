@@ -2,7 +2,7 @@
 
 Script `Auditoria-AD2025.ps1` de **auditoría de solo lectura** para un controlador de dominio ya promocionado. Ofrece instrucciones en pantalla cuando detecta una configuración pendiente, espera al operador en `-Guiado` y vuelve a comprobar algunas condiciones. **El script no modifica Active Directory, no configura backups y no crea tareas programadas**. Las acciones que se realicen manualmente durante las pausas sí pueden modificar el entorno.
 
-> Estado: probado con un controlador de dominio simulado (ver [Pruebas](#pruebas)). **Todavía no se ha validado en un Windows Server 2025 real.** Pruébalo primero en laboratorio y revisa el informe.
+> Estado: probado con un controlador de dominio simulado (ver [Pruebas](#pruebas)). Primera ejecución en un Windows Server real realizada; sigue en pruebas. Pruébalo primero en laboratorio y revisa el informe.
 
 ## Requisitos
 
@@ -153,9 +153,12 @@ El script se ha ejecutado de principio a fin en PowerShell simulando un controla
 - **Sin parámetros** y con una **subred /16**.
 - **Validación de parámetros**, con valores válidos e inválidos.
 
-En todos los casos el script termina, genera todos los informes y solo muestra ERROR cuando el fallo es real (el timeout simulado). **Todavía no se ha ejecutado contra un controlador de dominio real.** En tu laboratorio, revisa especialmente las salidas de `w32tm` en español, `Get-WBPolicy`, `Get-WBSummary` y los resultados del informe.
+En todos los casos el script termina, genera todos los informes y solo muestra ERROR cuando el fallo es real (el timeout simulado). La versión 4 se ha ejecutado en un servidor real, donde apareció el fallo corregido en la 4.1. En tu laboratorio, revisa especialmente las salidas de `w32tm` en español, `Get-WBPolicy`, `Get-WBSummary` y los resultados del informe.
 
 ## Historial de cambios
+
+**Versión 4.1**
+- El módulo `WindowsServerBackup` se carga una sola vez. Al cargarlo dos veces, el propio módulo de Microsoft mostraba errores `New-Alias ... Get-WBVssBackupOptions already exists`, aunque la auditoría continuaba.
 
 **Versión 4**
 - Papelera de reciclaje: se filtran los valores nulos de `EnabledScopes`, que podían dar un falso "habilitada".
